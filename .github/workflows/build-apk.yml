@@ -23,9 +23,13 @@ jobs:
           fi
 
           echo "Using ZIP: $ZIP"
+
           unzip -q "$ZIP" -d extracted
 
-          PACKAGE=$(find extracted -name package.json -not -path "*/node_modules/*" | head -1)
+          PACKAGE=$(find extracted \
+            -type f \
+            -name "package.json" \
+            -not -path "*/node_modules/*" | head -1)
 
           if [ -z "$PACKAGE" ]; then
             echo "package.json not found"
@@ -41,8 +45,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: ${{ env.PROJECT_DIR }}/package-lock.json
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -52,7 +54,12 @@ jobs:
 
       - name: Install dependencies
         working-directory: ${{ env.PROJECT_DIR }}
-        run: npm install
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
 
       - name: Build web app
         working-directory: ${{ env.PROJECT_DIR }}
@@ -63,16 +70,36 @@ jobs:
         run: |
           npm install @capacitor/core @capacitor/cli @capacitor/android
 
+      - name: Check Capacitor configuration
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          echo "Project files:"
+          ls -la
+
+          if [ -f capacitor.config.ts ]; then
+            echo "Found capacitor.config.ts"
+          elif [ -f capacitor.config.js ]; then
+            echo "Found capacitor.config.js"
+          elif [ -f capacitor.config.json ]; then
+            echo "Found capacitor.config.json"
+          else
+            echo "No Capacitor config found"
+            exit 1
+          fi
+
       - name: Add Android platform
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
-          if [ ! -d "android" ]; then
+          if [ -d android ]; then
+            echo "Android platform already exists"
+          else
             npx cap add android
           fi
 
       - name: Sync Android
         working-directory: ${{ env.PROJECT_DIR }}
-        run: npx cap sync android
+        run: |
+          npx cap sync android
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
