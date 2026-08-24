@@ -1,0 +1,82 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Find and extract project ZIP
+        run: |
+          mkdir extracted
+          ZIP=$(find . -maxdepth 1 -type f -iname "*.zip" | head -1)
+          unzip -q "$ZIP" -d extracted
+
+          PACKAGE=$(find extracted -name package.json -not -path "*/node_modules/*" | head -1)
+
+          if [ -z "$PACKAGE" ]; then
+            echo "package.json not found"
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$PACKAGE")
+          echo "Project found at: $PROJECT_DIR"
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install dependencies
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: npm install
+
+      - name: Build web app
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: npm run build
+
+      - name: Install Capacitor
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          npm install @capacitor/core@7 @capacitor/android@7
+          npm install -D @capacitor/cli@7
+
+      - name: Initialize Capacitor
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          npx cap init "Password Card Manager" "com.rubalbeniwal.passwordcard" --web-dir dist
+
+      - name: Add Android
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: npx cap add android
+
+      - name: Sync Android
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: npx cap sync android
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build APK
+        working-directory: ${{ env.PROJECT_DIR }}/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Password-Card-Manager-APK
+          path: ${{ env.PROJECT_DIR }}/android/app/build/outputs/apk/debug/app-debug.apk
