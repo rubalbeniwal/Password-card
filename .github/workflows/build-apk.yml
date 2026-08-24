@@ -13,8 +13,16 @@ jobs:
 
       - name: Find and extract project ZIP
         run: |
-          mkdir extracted
+          mkdir -p extracted
+
           ZIP=$(find . -maxdepth 1 -type f -iname "*.zip" | head -1)
+
+          if [ -z "$ZIP" ]; then
+            echo "No ZIP file found"
+            exit 1
+          fi
+
+          echo "Using ZIP: $ZIP"
           unzip -q "$ZIP" -d extracted
 
           PACKAGE=$(find extracted -name package.json -not -path "*/node_modules/*" | head -1)
@@ -26,13 +34,15 @@ jobs:
 
           PROJECT_DIR=$(dirname "$PACKAGE")
 
-          echo "Project found at: $PROJECT_DIR"
+          echo "Project directory: $PROJECT_DIR"
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: ${{ env.PROJECT_DIR }}/package-lock.json
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -48,19 +58,16 @@ jobs:
         working-directory: ${{ env.PROJECT_DIR }}
         run: npm run build
 
-      - name: Install Capacitor
+      - name: Install Capacitor dependencies
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
-          npm install @capacitor/core@7 @capacitor/android@7
-          npm install -D @capacitor/cli@7
+          npm install @capacitor/core @capacitor/cli @capacitor/android
 
-      - name: Add Android
+      - name: Add Android platform
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
           if [ ! -d "android" ]; then
             npx cap add android
-          else
-            echo "Android platform already exists"
           fi
 
       - name: Sync Android
