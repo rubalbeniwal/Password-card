@@ -25,6 +25,7 @@ jobs:
           fi
 
           PROJECT_DIR=$(dirname "$PACKAGE")
+
           echo "Project found at: $PROJECT_DIR"
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
@@ -53,14 +54,14 @@ jobs:
           npm install @capacitor/core@7 @capacitor/android@7
           npm install -D @capacitor/cli@7
 
-      - name: Initialize Capacitor
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: |
-          npx cap init "Password Card Manager" "com.rubalbeniwal.passwordcard" --web-dir dist
-
       - name: Add Android
         working-directory: ${{ env.PROJECT_DIR }}
-        run: npx cap add android
+        run: |
+          if [ ! -d "android" ]; then
+            npx cap add android
+          else
+            echo "Android platform already exists"
+          fi
 
       - name: Sync Android
         working-directory: ${{ env.PROJECT_DIR }}
