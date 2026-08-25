@@ -14,7 +14,6 @@ jobs:
       - name: Find and extract project ZIP
         run: |
           mkdir -p extracted
-
           ZIP=$(find . -maxdepth 1 -type f -iname "*.zip" | head -1)
 
           if [ -z "$ZIP" ]; then
@@ -23,7 +22,6 @@ jobs:
           fi
 
           echo "Using ZIP: $ZIP"
-
           unzip -q "$ZIP" -d extracted
 
           PACKAGE=$(find extracted \
@@ -37,7 +35,6 @@ jobs:
           fi
 
           PROJECT_DIR=$(dirname "$PACKAGE")
-
           echo "Project directory: $PROJECT_DIR"
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
@@ -52,6 +49,9 @@ jobs:
           distribution: temurin
           java-version: 21
 
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
       - name: Install dependencies
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
@@ -61,48 +61,11 @@ jobs:
             npm install
           fi
 
-      - name: Build web app
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: npm run build
-
-      - name: Install Capacitor dependencies
+      - name: Run Setup Script (Builds Web, Syncs Capacitor, Patches Native Files)
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
-          npm install @capacitor/core @capacitor/cli @capacitor/android
-
-      - name: Check Capacitor configuration
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: |
-          echo "Project files:"
-          ls -la
-
-          if [ -f capacitor.config.ts ]; then
-            echo "Found capacitor.config.ts"
-          elif [ -f capacitor.config.js ]; then
-            echo "Found capacitor.config.js"
-          elif [ -f capacitor.config.json ]; then
-            echo "Found capacitor.config.json"
-          else
-            echo "No Capacitor config found"
-            exit 1
-          fi
-
-      - name: Add Android platform
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: |
-          if [ -d android ]; then
-            echo "Android platform already exists"
-          else
-            npx cap add android
-          fi
-
-      - name: Sync Android
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: |
-          npx cap sync android
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+          chmod +x setup-android.sh
+          ./setup-android.sh
 
       - name: Build APK
         working-directory: ${{ env.PROJECT_DIR }}/android
